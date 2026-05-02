@@ -19,7 +19,6 @@ export default function Home() {
   const [history, setHistory] = useState([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [model, setModel] = useState('fast');
   const [developerMode, setDeveloperMode] = useState(false);
   const [processMode, setProcessMode] = useState('ai');
   const [telemetry, setTelemetry] = useState(null);
@@ -54,7 +53,7 @@ export default function Home() {
         saveHistory(entry);
         setTelemetry({ model: 'local-mock', durationMs: 0, inputTokens: 0, outputTokens: 0, costEstimateUSD: '0.0000' });
       } else {
-        const res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatHistory: sanitized, model, section }) });
+        const res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatHistory: sanitized, section }) });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Analysis failed');
         setResult(data.result);
@@ -76,7 +75,13 @@ export default function Home() {
   };
 
   const stages = ['Analyzing patterns...', 'Detecting contradictions...', 'Mapping behavior...'];
-  const stage = stages[Math.floor((Date.now() / 900) % stages.length)];
+  const [stageIndex, setStageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!loading) return;
+    const id = setInterval(() => setStageIndex((v) => (v + 1) % stages.length), 900);
+    return () => clearInterval(id);
+  }, [loading]);
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -88,7 +93,6 @@ export default function Home() {
           <textarea value={chatHistory} onChange={(e) => setChatHistory(e.target.value)} className="mt-5 min-h-64 w-full rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-sm outline-none focus:border-slate-500" placeholder="Paste chat history..." />
           <div className="mt-4 flex flex-wrap gap-3 text-sm">
             <input type="file" accept=".txt" onChange={async (e) => setChatHistory(await e.target.files?.[0]?.text() || '')} className="text-slate-300" />
-            <select value={model} onChange={(e) => setModel(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2"><option value="fast">Fast</option><option value="accurate">Accurate</option></select>
             <select value={processMode} onChange={(e) => setProcessMode(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2"><option value="ai">Send to AI</option><option value="local">Process locally only</option></select>
             <button onClick={() => handleAnalyze('full')} disabled={loading} className="rounded-xl bg-white px-4 py-2 font-medium text-slate-900 hover:bg-slate-200">Run Full Analysis</button>
           </div>
@@ -98,7 +102,7 @@ export default function Home() {
             ))}
             <button onClick={() => setDeveloperMode((v) => !v)} className="rounded-lg border border-slate-700 px-3 py-1">Dev Mode</button>
           </div>
-          {loading && <p className="mt-3 animate-pulse text-sm text-slate-300">{stage}</p>}
+          {loading && <p className="mt-3 animate-pulse text-sm text-slate-300">{stages[stageIndex]}</p>}
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
         </section>
 

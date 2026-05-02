@@ -1,7 +1,4 @@
-const MODEL_MAP = {
-  fast: 'llama3-8b-8192',
-  accurate: 'llama3-70b-8192',
-};
+const DEFAULT_MODEL = process.env.DEFAULT_MODEL || 'llama-3.3-70b-versatile';
 
 const BASE_PROMPT = `You are SelfGraph, a behavioral intelligence system.
 Analyze language with evidence only: tone, repetition, contradictions, and intent-vs-action gaps.
@@ -39,11 +36,11 @@ Return strict JSON with this shape:
 
 export async function POST(request) {
   try {
-    const { chatHistory, model = 'accurate', section = 'full' } = await request.json();
+    const { chatHistory, section = 'full' } = await request.json();
     if (!chatHistory?.trim()) return Response.json({ error: 'Chat history is required.' }, { status: 400 });
     if (chatHistory.trim().length < 250) return Response.json({ error: 'Chat history too short (min 250 chars).' }, { status: 400 });
 
-    const selectedModel = MODEL_MAP[model] || model || MODEL_MAP.accurate;
+    const selectedModel = DEFAULT_MODEL;
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return Response.json({ error: 'Missing GROQ_API_KEY in environment.' }, { status: 500 });
 

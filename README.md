@@ -7,7 +7,6 @@
 - Evolution Dashboard (latest vs previous comparison)
 - Section-level regeneration (`contradictions`, `system_correction_plan`, `scores`)
 - Manual section editing
-- Model selector (Fast / Accurate)
 - Telemetry panel (response time, token usage, cost estimate)
 - Privacy options: local redaction + local-only mock mode
 
@@ -42,5 +41,4 @@ The model assigns scores (0–100) from language evidence:
 
 
 ## Groq model
-- Recommended: `llama3-70b-8192`
-- Optional fast mode: `llama3-8b-8192`
+- Using a single default model: `llama-3.3-70b-versatile` (or override with `DEFAULT_MODEL`).
