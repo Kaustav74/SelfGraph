@@ -2,7 +2,7 @@ import './globals.css';
 
 export const metadata = {
   title: 'SelfGraph',
-  description: 'AI-powered self profile and improvement system generator',
+  description: 'Premium personal intelligence analysis from your chat history',
 };
 
 export default function RootLayout({ children }) {
