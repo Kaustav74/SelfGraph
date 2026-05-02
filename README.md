@@ -1,46 +1,42 @@
-# SelfGraph MVP
+# SelfGraph (Premium MVP)
 
-SelfGraph is a Next.js MVP that converts pasted or uploaded chat history into:
-- A structured Self Profile
-- A personalized Improvement System
+SelfGraph is a premium-feel personal intelligence app that turns chat history into:
+- Sharp behavioral profile
+- Score breakdown (Consistency / Execution / Discipline)
+- System correction plan + 7-day execution plan
 
-## Tech Stack
-- Next.js (React)
-- Node.js API route
-- OpenAI API
+## Stack
+- Next.js 14 (App Router)
 - Tailwind CSS
+- OpenAI Responses API
 
-## Setup
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-2. Create env file:
-   ```bash
-   cp .env.example .env.local
-   ```
-3. Add your OpenAI key in `.env.local`.
-4. Run the app:
-   ```bash
-   npm run dev
-   ```
-5. Open `http://localhost:3000`.
-
-## Environment Variables
-See `.env.example`.
-
-## Prompt used for AI
-The prompt is defined as `SYSTEM_PROMPT` in `app/api/analyze/route.js`.
+## Run locally
+1. `npm install`
+2. `cp .env.example .env.local`
+3. Add `OPENAI_API_KEY` to `.env.local`
+4. `npm run dev`
+5. Open `http://localhost:3000`
 
 ## How it works
-1. User pastes chat history or uploads a `.txt` file.
-2. Frontend sends text to `POST /api/analyze`.
-3. API route calls OpenAI Responses API with JSON schema enforcement.
-4. Structured analysis is returned and rendered in sections.
-5. User can copy or download the final report.
+1. User pastes or uploads `.txt` history.
+2. Frontend validates input (empty + minimum length).
+3. API route sends text to OpenAI with strict schema.
+4. Model returns:
+   - Scores with explanations
+   - Structured profile sections
+5. UI renders cards, progress bars, and export actions.
 
-## Next improvements
-- Add analysis history
-- Add editable plan regeneration per section
-- Add model selection + token usage stats
-- Add privacy controls (local processing option)
+## Scoring logic (LLM-guided rubric)
+The model computes three scores from language evidence:
+- **Consistency (0-100):** intent repetition vs sustained follow-through language.
+- **Execution (0-100):** concrete action verbs, deadlines, and completed-task framing.
+- **Discipline (0-100):** commitment language, avoidance markers, and self-regulation cues.
+
+## Prompt location
+- `app/api/analyze/route.js` (`SYSTEM_PROMPT`)
+
+## V2 roadmap
+- Side-by-side report diffing over time
+- Section-level “Regenerate” controls
+- Optional local redaction/privacy preprocessing
+- PDF export and team coaching mode
