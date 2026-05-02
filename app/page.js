@@ -2,54 +2,53 @@
 
 import { useMemo, useState } from 'react';
 import ResultSection from '@/components/ResultSection';
-import ScoreBar from '@/components/ui/ScoreBar';
 
-function reportToText(result) {
+const emptyResult = null;
+
+function formatAnalysisForDownload(result) {
   return Object.entries(result)
-    .map(([key, val]) => `${key.toUpperCase()}\n${typeof val === 'object' ? JSON.stringify(val, null, 2) : val}`)
+    .map(([section, content]) => {
+      const title = section.replace(/_/g, ' ').toUpperCase();
+      if (Array.isArray(content)) {
+        return `${title}\n${content.map((item) => `- ${item}`).join('\n')}`;
+      }
+      if (typeof content === 'object' && content !== null) {
+        return `${title}\n${Object.entries(content)
+          .map(([key, value]) => `${key.replace(/_/g, ' ')}: ${Array.isArray(value) ? value.join(', ') : value}`)
+          .join('\n')}`;
+      }
+      return `${title}\n${content}`;
+    })
     .join('\n\n');
-}
-
-function LoadingPulse() {
-  return (
-    <div className="flex items-center gap-2 text-sm text-slate-500">
-      <span className="h-2 w-2 animate-pulse rounded-full bg-slate-400" />
-      <span className="h-2 w-2 animate-pulse rounded-full bg-slate-400 [animation-delay:150ms]" />
-      <span className="h-2 w-2 animate-pulse rounded-full bg-slate-400 [animation-delay:300ms]" />
-      <p className="ml-2">AI is building your SelfGraph…</p>
-    </div>
-  );
 }
 
 export default function Home() {
   const [chatHistory, setChatHistory] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState(emptyResult);
 
-  const reportText = useMemo(() => (result ? reportToText(result) : ''), [result]);
+  const downloadText = useMemo(() => (result ? formatAnalysisForDownload(result) : ''), [result]);
 
   const onFileUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setChatHistory(await file.text());
+    const text = await file.text();
+    setChatHistory(text);
   };
 
   const handleAnalyze = async () => {
     setError('');
-    const trimmed = chatHistory.trim();
-    if (!trimmed) return setError('Please paste chat history before running analysis.');
-    if (trimmed.length < 250) return setError('Input is too short. Paste at least 250 characters for meaningful analysis.');
-
     setLoading(true);
     try {
       const res = await fetch('/api/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chatHistory: trimmed }),
+        body: JSON.stringify({ chatHistory }),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Analysis failed.');
+      if (!res.ok) throw new Error(data.error || 'Failed to analyze input');
       setResult(data.result);
     } catch (err) {
       setError(err.message);
@@ -58,11 +57,14 @@ export default function Home() {
     }
   };
 
-  const copyReport = async () => reportText && navigator.clipboard.writeText(reportText);
+  const handleCopy = async () => {
+    if (!downloadText) return;
+    await navigator.clipboard.writeText(downloadText);
+  };
 
-  const downloadReport = () => {
-    if (!reportText) return;
-    const blob = new Blob([reportText], { type: 'text/plain' });
+  const handleDownload = () => {
+    if (!downloadText) return;
+    const blob = new Blob([downloadText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -72,62 +74,60 @@ export default function Home() {
   };
 
   return (
-    <main className="mx-auto min-h-screen w-full max-w-5xl px-5 py-10 md:px-8 md:py-16">
-      <section className="mx-auto max-w-3xl rounded-3xl border border-slate-200 bg-white p-6 shadow-[0_4px_30px_rgba(15,23,42,0.06)] md:p-8">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">Personal Intelligence</p>
-        <h1 className="text-4xl font-semibold tracking-tight text-slate-900 md:text-5xl">SelfGraph</h1>
-        <p className="mt-3 text-sm leading-relaxed text-slate-500">
-          Paste your ChatGPT/Gemini history and receive a sharp personality profile, score breakdown, and action system.
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-8 p-6 md:p-10">
+      <header>
+        <h1 className="text-3xl font-bold tracking-tight md:text-4xl">SelfGraph</h1>
+        <p className="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
+          Paste your chat history to generate a structured Self Profile and a personalized Improvement System.
         </p>
+      </header>
 
-        <div className="mt-7 space-y-3">
-          <textarea
-            value={chatHistory}
-            onChange={(e) => setChatHistory(e.target.value)}
-            placeholder="Paste conversation history…"
-            className="min-h-72 w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700 outline-none transition focus:border-slate-400"
-          />
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <input type="file" accept=".txt" onChange={onFileUpload} className="text-xs text-slate-500" />
-            <button
-              onClick={handleAnalyze}
-              disabled={loading}
-              className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
-              {loading ? 'Analyzing...' : 'Generate SelfGraph'}
-            </button>
-          </div>
-          {loading && <LoadingPulse />}
-          {error && <p className="text-sm text-red-600">{error}</p>}
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <label className="mb-2 block text-sm font-medium">Chat history input</label>
+        <textarea
+          value={chatHistory}
+          onChange={(e) => setChatHistory(e.target.value)}
+          className="min-h-60 w-full rounded-xl border border-slate-300 bg-transparent p-3 text-sm focus:border-indigo-500 focus:outline-none dark:border-slate-700"
+          placeholder="Paste ChatGPT, Gemini, or other chat history here..."
+        />
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <input type="file" accept=".txt" onChange={onFileUpload} className="text-sm" />
+          <button
+            onClick={handleAnalyze}
+            disabled={!chatHistory.trim() || loading}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 disabled:cursor-not-allowed disabled:bg-indigo-300"
+          >
+            {loading ? 'Analyzing...' : 'Generate SelfGraph'}
+          </button>
         </div>
+        {error && <p className="mt-3 text-sm text-red-500">{error}</p>}
       </section>
 
       {result && (
-        <section className="mt-10 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-2xl font-semibold tracking-tight text-slate-900">Your SelfGraph Report</h2>
+        <section className="space-y-5">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-2xl font-semibold">SelfGraph Results</h2>
             <div className="flex gap-2">
-              <button onClick={copyReport} className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm transition hover:bg-slate-50">Copy Report</button>
-              <button onClick={downloadReport} className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm transition hover:bg-slate-50">Download Report</button>
+              <button onClick={handleCopy} className="rounded-lg border px-3 py-2 text-sm">Copy</button>
+              <button onClick={handleDownload} className="rounded-lg border px-3 py-2 text-sm">Download</button>
             </div>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-3">
-            <ScoreBar label="Consistency Score" score={result.scores.consistency.score} explanation={result.scores.consistency.explanation} />
-            <ScoreBar label="Execution Score" score={result.scores.execution.score} explanation={result.scores.execution.explanation} />
-            <ScoreBar label="Discipline Score" score={result.scores.discipline.score} explanation={result.scores.discipline.explanation} />
-          </div>
-
-          {Object.entries(result.sections).map(([section, content]) => (
+          {Object.entries(result).map(([section, content]) => (
             <ResultSection key={section} title={section.replace(/_/g, ' ')}>
               {Array.isArray(content) ? (
                 <ul className="list-disc space-y-1 pl-5">
-                  {content.map((item, i) => <li key={i}>{item}</li>)}
+                  {content.map((item, idx) => (
+                    <li key={`${section}-${idx}`}>{item}</li>
+                  ))}
                 </ul>
-              ) : typeof content === 'object' ? (
+              ) : typeof content === 'object' && content !== null ? (
                 <ul className="space-y-1">
-                  {Object.entries(content).map(([k, v]) => (
-                    <li key={k}><span className="font-medium text-slate-900">{k.replace(/_/g, ' ')}:</span> {Array.isArray(v) ? v.join(', ') : v}</li>
+                  {Object.entries(content).map(([key, value]) => (
+                    <li key={key}>
+                      <span className="font-semibold capitalize">{key.replace(/_/g, ' ')}:</span>{' '}
+                      {Array.isArray(value) ? value.join(', ') : value}
+                    </li>
                   ))}
                 </ul>
               ) : (
