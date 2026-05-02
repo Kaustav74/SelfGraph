@@ -14,7 +14,7 @@
 ## Run locally
 1. `npm install`
 2. `cp .env.example .env.local`
-3. Add `GEMINI_API_KEY=...` in `.env.local`
+3. Add `GROQ_API_KEY=...` in `.env.local`
 4. `npm run dev`
 5. Open `http://localhost:3000`
 
@@ -39,3 +39,8 @@ The model assigns scores (0–100) from language evidence:
 - Next.js App Router frontend
 - API route backend (`app/api/analyze/route.js`)
 - Local-first persistence abstraction in client state
+
+
+## Groq model
+- Recommended: `llama3-70b-8192`
+- Optional fast mode: `llama3-8b-8192`

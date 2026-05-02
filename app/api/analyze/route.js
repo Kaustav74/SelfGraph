@@ -1,6 +1,6 @@
 const MODEL_MAP = {
-  fast: 'gemini-2.0-flash',
-  accurate: 'gemini-2.5-pro',
+  fast: 'llama3-8b-8192',
+  accurate: 'llama3-70b-8192',
 };
 
 const BASE_PROMPT = `You are SelfGraph, a behavioral intelligence system.
@@ -12,6 +12,7 @@ Rules:
 - Be precise, direct, constructive.
 - If evidence is missing, return "Not enough evidence".
 - Contradictions must be explicit and concrete.
+- Return valid JSON only.
 
 Return strict JSON with this shape:
 {
@@ -38,43 +39,52 @@ Return strict JSON with this shape:
 
 export async function POST(request) {
   try {
-    const { chatHistory, model = 'fast', section = 'full' } = await request.json();
+    const { chatHistory, model = 'accurate', section = 'full' } = await request.json();
     if (!chatHistory?.trim()) return Response.json({ error: 'Chat history is required.' }, { status: 400 });
     if (chatHistory.trim().length < 250) return Response.json({ error: 'Chat history too short (min 250 chars).' }, { status: 400 });
 
-    const selectedModel = MODEL_MAP[model] || MODEL_MAP.fast;
-    const apiKey = process.env.GEMINI_API_KEY || 'YOUR_GEMINI_API_KEY';
+    const selectedModel = MODEL_MAP[model] || model || MODEL_MAP.accurate;
+    const apiKey = process.env.GROQ_API_KEY;
+    if (!apiKey) return Response.json({ error: 'Missing GROQ_API_KEY in environment.' }, { status: 500 });
+
     const scopedPrompt = section === 'full' ? BASE_PROMPT : `${BASE_PROMPT}\nReturn full JSON but focus strongest evidence and detail on section: ${section}.`;
 
     const payload = {
-      contents: [{ role: 'user', parts: [{ text: `${scopedPrompt}\n\nChat History:\n${chatHistory}` }] }],
-      generationConfig: { responseMimeType: 'application/json', temperature: 0.4 },
+      model: selectedModel,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: scopedPrompt },
+        { role: 'user', content: chatHistory },
+      ],
     };
 
     const start = Date.now();
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey}`, {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify(payload),
     });
 
     const data = await response.json();
-    if (!response.ok) {
-      const message = data?.error?.message || 'Gemini API error';
-      return Response.json({ error: message }, { status: 500 });
-    }
+    if (!response.ok) return Response.json({ error: data?.error?.message || 'Groq API error' }, { status: 500 });
 
-    const rawText = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-    if (!rawText) return Response.json({ error: 'No Gemini response text returned.' }, { status: 500 });
+    const rawText = data?.choices?.[0]?.message?.content;
+    if (!rawText) return Response.json({ error: 'No Groq response text returned.' }, { status: 500 });
 
     const result = JSON.parse(rawText);
-    const durationMs = Date.now() - start;
-    const usage = data?.usageMetadata || {};
-    const inputTokens = usage.promptTokenCount || 0;
-    const outputTokens = usage.candidatesTokenCount || 0;
-    const costEstimateUSD = 'N/A';
+    const usage = data?.usage || {};
 
-    return Response.json({ result, telemetry: { model: selectedModel, durationMs, inputTokens, outputTokens, costEstimateUSD } });
+    return Response.json({
+      result,
+      telemetry: {
+        model: selectedModel,
+        durationMs: Date.now() - start,
+        inputTokens: usage.prompt_tokens || 0,
+        outputTokens: usage.completion_tokens || 0,
+        costEstimateUSD: 'N/A',
+      },
+    });
   } catch (error) {
     return Response.json({ error: error.message || 'Unexpected server error.' }, { status: 500 });
   }
