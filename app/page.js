@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Navbar from '../components/ui/Navbar';
-import InputCard from '../components/ui/InputCard';
-import ActionBar from '../components/ui/ActionBar';
-import ResultCard from '../components/ui/ResultCard';
-import ScoreCard from '../components/ui/ScoreCard';
+import Navbar from './components/ui/Navbar';
+import InputCard from './components/ui/InputCard';
+import ActionBar from './components/ui/ActionBar';
+import ResultCard from './components/ui/ResultCard';
+import ScoreCard from './components/ui/ScoreCard';
 
 const STORAGE_KEY = 'selfgraph_history_v1';
 const loadingMessages = ['Analyzing patterns...', 'Detecting contradictions...', 'Mapping behavior...'];
@@ -71,7 +71,7 @@ export default function Home() {
 
   const renderValue = (v) => {
     if (Array.isArray(v)) return <ul className="list-disc pl-5">{v.map((i, idx) => <li key={idx}>{i}</li>)}</ul>;
-    if (typeof v === 'object' && v) return <div className="space-y-1">{Object.entries(v).map(([k, val]) => <p key={k}><span className="capitalize text-neutral-400">{k.replace(/_/g, ' ')}:</span> {Array.isArray(val) ? val.join(', ') : val}</p>)}</div>;
+    if (typeof v === 'object' && v) return <div className="space-y-1">{Object.entries(v).map(([k, val]) => <p key={k}><span className="capitalize text-slate-500">{k.replace(/_/g, ' ')}:</span> {Array.isArray(val) ? val.join(', ') : val}</p>)}</div>;
     return <p>{v}</p>;
   };
 
@@ -86,19 +86,19 @@ export default function Home() {
   ] : [];
 
   return (
-    <main className="min-h-screen bg-black text-white">
+    <main className="min-h-screen bg-slate-50 text-slate-900">
       <Navbar />
       <section className="mx-auto max-w-6xl px-6 py-12">
         <div className="mx-auto mb-8 max-w-3xl text-center">
           <h2 className="text-4xl font-semibold tracking-tight md:text-5xl">Understand Yourself. Precisely.</h2>
-          <p className="mt-3 text-neutral-400">A personal intelligence system that reveals patterns, contradictions, and growth paths.</p>
+          <p className="mt-3 text-slate-500">A personal intelligence system that reveals patterns, contradictions, and growth paths.</p>
         </div>
 
         <div className="mx-auto max-w-3xl">
           <InputCard value={chatHistory} onChange={(e) => setChatHistory(e.target.value)} />
           <ActionBar loading={loading} processMode={processMode} setProcessMode={setProcessMode} onAnalyze={() => runAnalysis('full')} onFile={async (e) => setChatHistory(await e.target.files?.[0]?.text() || '')} />
-          {loading && <p className="mt-4 animate-pulse text-sm text-neutral-400 transition-all duration-300">{loadingMessages[messageIndex]}</p>}
-          {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+          {loading && <p className="mt-4 animate-pulse text-sm text-slate-500 transition-all duration-300">{loadingMessages[messageIndex]}</p>}
+          {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
         </div>
 
         {result && (
@@ -108,7 +108,7 @@ export default function Home() {
               <ResultCard key={key} title={title} onRegenerate={() => runAnalysis(key)} onEdit={() => setEditing(editing === key ? null : key)}>
                 {editing === key ? (
                   <textarea
-                    className="min-h-40 w-full rounded-xl border border-neutral-700 bg-black p-3 text-xs"
+                    className="min-h-40 w-full rounded-xl border border-slate-300 bg-slate-50 p-3 text-xs text-slate-700"
                     defaultValue={JSON.stringify(value, null, 2)}
                     onBlur={(e) => {
                       try {
