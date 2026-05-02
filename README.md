@@ -42,5 +42,10 @@ The model assigns scores (0–100) from language evidence:
 
 
 ## Groq model
-- Recommended: `llama3-70b-8192`
-- Optional fast mode: `llama3-8b-8192`
+- Recommended: `llama-3.3-70b-versatile`
+- Optional fast mode: `llama-3.1-8b-instant`
+
+
+## Model deprecation update
+- `llama3-8b-8192` and `llama3-70b-8192` are deprecated on Groq.
+- Replaced with `llama-3.1-8b-instant` (fast) and `llama-3.3-70b-versatile` (accurate).

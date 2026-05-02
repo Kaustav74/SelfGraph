@@ -1,6 +1,6 @@
 const MODEL_MAP = {
-  fast: 'llama3-8b-8192',
-  accurate: 'llama3-70b-8192',
+  fast: 'llama-3.1-8b-instant',
+  accurate: 'llama-3.3-70b-versatile',
 };
 
 const BASE_PROMPT = `You are SelfGraph, a behavioral intelligence system.

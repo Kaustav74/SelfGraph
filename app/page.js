@@ -76,7 +76,13 @@ export default function Home() {
   };
 
   const stages = ['Analyzing patterns...', 'Detecting contradictions...', 'Mapping behavior...'];
-  const stage = stages[Math.floor((Date.now() / 900) % stages.length)];
+  const [stageIndex, setStageIndex] = useState(0);
+
+  useEffect(() => {
+    if (!loading) return;
+    const id = setInterval(() => setStageIndex((v) => (v + 1) % stages.length), 900);
+    return () => clearInterval(id);
+  }, [loading]);
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100">
@@ -98,7 +104,7 @@ export default function Home() {
             ))}
             <button onClick={() => setDeveloperMode((v) => !v)} className="rounded-lg border border-slate-700 px-3 py-1">Dev Mode</button>
           </div>
-          {loading && <p className="mt-3 animate-pulse text-sm text-slate-300">{stage}</p>}
+          {loading && <p className="mt-3 animate-pulse text-sm text-slate-300">{stages[stageIndex]}</p>}
           {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
         </section>
 
