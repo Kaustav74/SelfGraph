@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Navbar from './components/ui/Navbar';
-import InputCard from './components/ui/InputCard';
-import ActionBar from './components/ui/ActionBar';
-import ResultCard from './components/ui/ResultCard';
-import ScoreCard from './components/ui/ScoreCard';
+import Navbar from './components/ui/Navbar.jsx';
+import InputCard from './components/ui/InputCard.jsx';
+import ActionBar from './components/ui/ActionBar.jsx';
+import ResultCard from './components/ui/ResultCard.jsx';
+import ScoreCard from './components/ui/ScoreCard.jsx';
 
 const STORAGE_KEY = 'selfgraph_history_v1';
 const loadingMessages = ['Analyzing patterns...', 'Detecting contradictions...', 'Mapping behavior...'];
