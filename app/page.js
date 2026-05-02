@@ -1,32 +1,40 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import ResultSection from '@/components/ResultSection';
-import ScoreBar from '@/components/ui/ScoreBar';
+import { useEffect, useState } from 'react';
+import Navbar from '@/components/ui/Navbar';
+import InputCard from '@/components/ui/InputCard';
+import ActionBar from '@/components/ui/ActionBar';
+import ResultCard from '@/components/ui/ResultCard';
+import ScoreCard from '@/components/ui/ScoreCard';
 
 const STORAGE_KEY = 'selfgraph_history_v1';
-const scoreKeys = ['consistency', 'execution', 'discipline', 'contradiction_index', 'clarity_index'];
+const loadingMessages = ['Analyzing patterns...', 'Detecting contradictions...', 'Mapping behavior...'];
 
 const redactSensitive = (text) => text
   .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[REDACTED_EMAIL]')
   .replace(/\+?\d[\d\s().-]{7,}\d/g, '[REDACTED_PHONE]')
-  .replace(/\b\d{2,}\b/g, '[REDACTED_NUMBER]')
-  .replace(/\b([A-Z][a-z]{2,}\s[A-Z][a-z]{2,})\b/g, '[REDACTED_NAME]');
+  .replace(/\b\d{2,}\b/g, '[REDACTED_NUMBER]');
 
 export default function Home() {
   const [chatHistory, setChatHistory] = useState('');
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
-  const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [developerMode, setDeveloperMode] = useState(false);
+  const [messageIndex, setMessageIndex] = useState(0);
+  const [error, setError] = useState('');
   const [processMode, setProcessMode] = useState('ai');
-  const [telemetry, setTelemetry] = useState(null);
+  const [editing, setEditing] = useState(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) setHistory(JSON.parse(stored));
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) setHistory(JSON.parse(saved));
   }, []);
+
+  useEffect(() => {
+    if (!loading) return;
+    const id = setInterval(() => setMessageIndex((i) => (i + 1) % loadingMessages.length), 950);
+    return () => clearInterval(id);
+  }, [loading]);
 
   const saveHistory = (entry) => {
     const next = [entry, ...history].slice(0, 20);
@@ -34,32 +42,25 @@ export default function Home() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   };
 
-  const handleAnalyze = async (section = 'full') => {
+  const runAnalysis = async (section = 'full') => {
     setError('');
     const trimmed = chatHistory.trim();
-    if (!trimmed) return setError('Please paste chat history.');
-    if (trimmed.length < 250) return setError('Provide at least 250 characters for reliable analysis.');
+    if (!trimmed) return setError('Paste conversation history first.');
+    if (trimmed.length < 250) return setError('Please provide at least 250 characters.');
 
     setLoading(true);
     try {
       const sanitized = redactSensitive(trimmed);
       if (processMode === 'local') {
-        const mock = {
-          scores: Object.fromEntries(scoreKeys.map((k) => [k, { score: 50, explanation: 'Local-only mode uses heuristic placeholders.' }])),
-          sections: { identity_core: { demographics: 'Not enough evidence', role_stage_of_life: 'Not enough evidence' }, driving_forces: { motivations: ['Not enough evidence'], goals_inferred: ['Not enough evidence'] }, behavioral_patterns: { thinking_style: 'Not enough evidence', execution_level: 'Not enough evidence', consistency_pattern: 'Not enough evidence' }, contradictions: ['Local-only mode: no cloud inference.'], limiting_factors: ['Local-only mode: no cloud inference.'], execution_profile: 'Thinker', trajectory: 'Not enough evidence', system_correction_plan: { top_3_weaknesses: ['Not enough evidence'], stop: ['Not enough evidence'], start: ['Not enough evidence'], ignore: ['Not enough evidence'] }, seven_day_execution_plan: { day_1: 'Define one measurable goal.', day_2: 'Track one behavior.', day_3: 'Complete one hard task.', day_4: 'Remove one distraction.', day_5: 'Repeat day 3.', day_6: 'Review patterns.', day_7: 'Set next week plan.' }, failure_warning: 'Without data-backed review, blind spots persist.' },
-        };
+        const mock = { scores: { consistency: { score: 50 }, execution: { score: 50 }, discipline: { score: 50 } }, sections: { identity_core: { demographics: 'Not enough evidence', role_stage_of_life: 'Not enough evidence' }, behavioral_patterns: { thinking_style: 'Not enough evidence', execution_level: 'Not enough evidence', consistency_pattern: 'Not enough evidence' }, contradictions: ['Local mode: no cloud inference'], limiting_factors: ['Local mode: no cloud inference'], execution_profile: 'Thinker', trajectory: 'Not enough evidence', system_correction_plan: { top_3_weaknesses: ['Not enough evidence'], stop: ['Not enough evidence'], start: ['Not enough evidence'], ignore: ['Not enough evidence'] } } };
         setResult(mock);
-        const entry = { timestamp: new Date().toISOString(), inputSnapshot: sanitized.slice(0, 2000), scores: mock.scores };
-        saveHistory(entry);
-        setTelemetry({ model: 'local-mock', durationMs: 0, inputTokens: 0, outputTokens: 0, costEstimateUSD: '0.0000' });
+        saveHistory({ timestamp: new Date().toISOString(), inputSnapshot: sanitized.slice(0, 2000), scores: mock.scores });
       } else {
         const res = await fetch('/api/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chatHistory: sanitized, section }) });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || 'Analysis failed');
         setResult(data.result);
-        setTelemetry(data.telemetry);
-        const entry = { timestamp: new Date().toISOString(), inputSnapshot: sanitized.slice(0, 2000), scores: data.result.scores };
-        saveHistory(entry);
+        saveHistory({ timestamp: new Date().toISOString(), inputSnapshot: sanitized.slice(0, 2000), scores: data.result.scores });
       }
     } catch (e) {
       setError(e.message);
@@ -68,68 +69,64 @@ export default function Home() {
     }
   };
 
-  const previous = history[1];
-  const scoreDelta = (key) => {
-    if (!result || !previous) return null;
-    return result.scores[key].score - previous.scores[key].score;
+  const renderValue = (v) => {
+    if (Array.isArray(v)) return <ul className="list-disc pl-5">{v.map((i, idx) => <li key={idx}>{i}</li>)}</ul>;
+    if (typeof v === 'object' && v) return <div className="space-y-1">{Object.entries(v).map(([k, val]) => <p key={k}><span className="capitalize text-neutral-400">{k.replace(/_/g, ' ')}:</span> {Array.isArray(val) ? val.join(', ') : val}</p>)}</div>;
+    return <p>{v}</p>;
   };
 
-  const stages = ['Analyzing patterns...', 'Detecting contradictions...', 'Mapping behavior...'];
-  const [stageIndex, setStageIndex] = useState(0);
-
-  useEffect(() => {
-    if (!loading) return;
-    const id = setInterval(() => setStageIndex((v) => (v + 1) % stages.length), 900);
-    return () => clearInterval(id);
-  }, [loading]);
+  const cards = result ? [
+    ['Identity', result.sections.identity_core, 'identity_core'],
+    ['Behavioral Patterns', result.sections.behavioral_patterns, 'behavioral_patterns'],
+    ['Contradictions', result.sections.contradictions, 'contradictions'],
+    ['Limiting Factors', result.sections.limiting_factors, 'limiting_factors'],
+    ['Execution Profile', result.sections.execution_profile, 'execution_profile'],
+    ['Trajectory', result.sections.trajectory, 'trajectory'],
+    ['System Plan', result.sections.system_correction_plan, 'system_correction_plan'],
+  ] : [];
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100">
-      <div className="mx-auto max-w-6xl space-y-8 px-5 py-10">
-        <section className="rounded-3xl border border-slate-800 bg-gradient-to-b from-slate-900 to-slate-950 p-6 shadow-2xl">
-          <h1 className="text-4xl font-semibold tracking-tight">SelfGraph</h1>
-          <p className="mt-2 text-sm text-slate-300">A personal intelligence mirror that tracks behavioral truth over time.</p>
-          <p className="mt-2 text-xs text-slate-400">Data notice: only redacted text is sent to AI. Emails, phones, names, and long numbers are masked locally.</p>
-          <textarea value={chatHistory} onChange={(e) => setChatHistory(e.target.value)} className="mt-5 min-h-64 w-full rounded-2xl border border-slate-700 bg-slate-900/70 p-4 text-sm outline-none focus:border-slate-500" placeholder="Paste chat history..." />
-          <div className="mt-4 flex flex-wrap gap-3 text-sm">
-            <input type="file" accept=".txt" onChange={async (e) => setChatHistory(await e.target.files?.[0]?.text() || '')} className="text-slate-300" />
-            <select value={processMode} onChange={(e) => setProcessMode(e.target.value)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2"><option value="ai">Send to AI</option><option value="local">Process locally only</option></select>
-            <button onClick={() => handleAnalyze('full')} disabled={loading} className="rounded-xl bg-white px-4 py-2 font-medium text-slate-900 hover:bg-slate-200">Run Full Analysis</button>
-          </div>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
-            {['contradictions', 'system_correction_plan', 'scores'].map((sec) => (
-              <button key={sec} onClick={() => handleAnalyze(sec)} disabled={loading} className="rounded-lg border border-slate-700 px-3 py-1 hover:bg-slate-800">Regenerate: {sec}</button>
+    <main className="min-h-screen bg-black text-white">
+      <Navbar />
+      <section className="mx-auto max-w-6xl px-6 py-12">
+        <div className="mx-auto mb-8 max-w-3xl text-center">
+          <h2 className="text-4xl font-semibold tracking-tight md:text-5xl">Understand Yourself. Precisely.</h2>
+          <p className="mt-3 text-neutral-400">A personal intelligence system that reveals patterns, contradictions, and growth paths.</p>
+        </div>
+
+        <div className="mx-auto max-w-3xl">
+          <InputCard value={chatHistory} onChange={(e) => setChatHistory(e.target.value)} />
+          <ActionBar loading={loading} processMode={processMode} setProcessMode={setProcessMode} onAnalyze={() => runAnalysis('full')} onFile={async (e) => setChatHistory(await e.target.files?.[0]?.text() || '')} />
+          {loading && <p className="mt-4 animate-pulse text-sm text-neutral-400 transition-all duration-300">{loadingMessages[messageIndex]}</p>}
+          {error && <p className="mt-4 text-sm text-red-400">{error}</p>}
+        </div>
+
+        {result && (
+          <div className="mt-12 grid gap-4 lg:grid-cols-2">
+            <ScoreCard scores={result.scores} />
+            {cards.map(([title, value, key]) => (
+              <ResultCard key={key} title={title} onRegenerate={() => runAnalysis(key)} onEdit={() => setEditing(editing === key ? null : key)}>
+                {editing === key ? (
+                  <textarea
+                    className="min-h-40 w-full rounded-xl border border-neutral-700 bg-black p-3 text-xs"
+                    defaultValue={JSON.stringify(value, null, 2)}
+                    onBlur={(e) => {
+                      try {
+                        const parsed = JSON.parse(e.target.value);
+                        setResult((prev) => ({ ...prev, sections: { ...prev.sections, [key]: parsed } }));
+                      } catch {
+                        setError('Invalid JSON while editing section.');
+                      }
+                    }}
+                  />
+                ) : (
+                  renderValue(value)
+                )}
+              </ResultCard>
             ))}
-            <button onClick={() => setDeveloperMode((v) => !v)} className="rounded-lg border border-slate-700 px-3 py-1">Dev Mode</button>
           </div>
-          {loading && <p className="mt-3 animate-pulse text-sm text-slate-300">{stages[stageIndex]}</p>}
-          {error && <p className="mt-3 text-sm text-red-400">{error}</p>}
-        </section>
-
-        {result && <section className="grid gap-4 md:grid-cols-5">{scoreKeys.map((k) => <ScoreBar key={k} label={k.replace(/_/g,' ')} score={result.scores[k].score} explanation={result.scores[k].explanation} />)}</section>}
-
-        {result && <section className="grid gap-4 md:grid-cols-2">{Object.entries(result.sections).map(([k, v]) => <EditableSection key={k} name={k} value={v} onSave={(next) => setResult((prev) => ({ ...prev, sections: { ...prev.sections, [k]: next } }))} />)}</section>}
-
-        <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5">
-          <h2 className="text-lg font-semibold">Evolution Dashboard</h2>
-          <p className="text-xs text-slate-400">Compares the latest report with the previous saved analysis.</p>
-          <div className="mt-3 grid gap-3 md:grid-cols-5 text-sm">{scoreKeys.map((k) => <div key={k} className="rounded-xl border border-slate-700 p-3"><p className="capitalize text-slate-300">{k.replace(/_/g,' ')}</p><p className="mt-1 font-semibold">{result?.scores?.[k]?.score ?? '-'} {scoreDelta(k) !== null && <span className={scoreDelta(k) >= 0 ? 'text-emerald-400' : 'text-rose-400'}>({scoreDelta(k) >= 0 ? '+' : ''}{scoreDelta(k)})</span>}</p></div>)}</div>
-          <p className="mt-3 text-xs text-slate-500">Saved analyses: {history.length}</p>
-        </section>
-
-        {developerMode && telemetry && <section className="rounded-3xl border border-slate-800 bg-slate-900 p-5 text-xs text-slate-300"><p>Model: {telemetry.model}</p><p>Response Time: {telemetry.durationMs} ms</p><p>Input Tokens: {telemetry.inputTokens}</p><p>Output Tokens: {telemetry.outputTokens}</p><p>Estimated Cost (USD): {telemetry.costEstimateUSD}</p></section>}
-      </div>
+        )}
+      </section>
     </main>
-  );
-}
-
-function EditableSection({ name, value, onSave }) {
-  const [draft, setDraft] = useState(JSON.stringify(value, null, 2));
-  useEffect(() => setDraft(JSON.stringify(value, null, 2)), [value]);
-  return (
-    <ResultSection title={name.replace(/_/g, ' ')}>
-      <textarea value={draft} onChange={(e) => setDraft(e.target.value)} className="min-h-40 w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs" />
-      <button onClick={() => { try { onSave(JSON.parse(draft)); } catch { } }} className="mt-2 rounded-lg border border-slate-600 px-3 py-1 text-xs">Save edits</button>
-    </ResultSection>
   );
 }
